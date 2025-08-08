@@ -1,0 +1,583 @@
+<template>
+
+  
+  <scroll-view scroll-y class="viewport" id="scroller" @scrolltolower="onScrollToLower" 
+    refresher-enabled :refresher-triggered="refreshing" @refresherrefresh="onRefresh">
+    
+    <!-- 搜索区域 -->
+    <view class="search-section" :style="{ paddingTop: safeAreaInsets?.top + 20 + 'px' }">
+      <view class="search-box">
+        <text class="icon-search"></text>
+        <input 
+          class="search-input" 
+          v-model="searchKeyword" 
+          placeholder="搜索直播间或主播"
+          confirm-type="search"
+        />
+        <text v-if="searchKeyword" class="icon-close" @tap="clearSearch"></text>
+      </view>
+    </view>
+    
+    <!-- 加载状态 -->
+    <view v-if="loading && !refreshing" class="loading">
+      <view class="loading-spinner"></view>
+      <text class="loading-text">正在加载直播间...</text>
+    </view>
+    
+    <!-- 空状态 -->
+    <view v-else-if="!loading && filteredRooms.length === 0" class="empty">
+      <view class="empty-icon">📺</view>
+      <text class="empty-text">{{ searchKeyword ? '未找到相关直播间' : '暂无直播间' }}</text>
+      <text class="empty-desc">{{ searchKeyword ? '尝试使用其他关键词搜索' : '当前没有正在直播的房间' }}</text>
+      <view v-if="!searchKeyword" class="empty-button" @tap="refreshRoomList">刷新试试</view>
+      <view v-else class="empty-button" @tap="clearSearch">清除搜索</view>
+    </view>
+    
+    <!-- 直播间列表 -->
+    <view v-else-if="!loading" class="room-list">
+      <view 
+        v-for="room in filteredRooms" 
+        :key="room.roomId"
+        class="room-item"
+        @tap="enterRoom(room)"
+      >
+        <!-- 直播间封面 -->
+        <view class="room-cover">
+          <image 
+            class="cover-image" 
+            :src="room.thumbnail || getDefaultCover()" 
+            mode="aspectFill"
+            @error="handleImageError"
+          ></image>
+          <view class="live-badge">
+            <text class="live-text">LIVE</text>
+          </view>
+          <view class="viewer-count">
+            <text class="viewer-icon icon-eye"></text>
+            <text class="viewer-number">{{ formatViewerCount(room.viewerCount) }}</text>
+          </view>
+        </view>
+        
+        <!-- 直播间信息 -->
+        <view class="room-info">
+          <view class="room-title">{{ room.title }}</view>
+          <view class="room-meta">
+            <view class="streamer-info">
+              <image 
+                class="streamer-avatar" 
+                :src="room.streamerAvatar || getDefaultAvatar()" 
+                mode="aspectFill"
+                @error="handleAvatarError"
+              ></image>
+              <text class="streamer-name">{{ room.streamerName }}</text>
+            </view>
+            <view class="room-stats">
+              <text class="duration-icon icon-clock"></text>
+              <text class="duration-text">{{ formatDuration(room.duration) }}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+    
+    <!-- 底部提示 -->
+    <view v-if="!loading && !refreshing && filteredRooms.length > 0" class="bottom-tips">
+      <text class="tips-text">已显示全部直播间</text>
+    </view>
+    
+    <!-- 底部安全区域 -->
+    <view class="safe-area" :style="{ height: safeAreaInsets?.bottom + 'px' }"></view>
+  </scroll-view>
+</template>
+
+<script setup lang="ts">
+import { ref, computed, onMounted } from 'vue'
+import { getLiveRoomListAPI } from '@/services/live'
+
+// 获取屏幕边界到安全区域距离
+const { safeAreaInsets } = uni.getSystemInfoSync()
+
+// 响应式数据
+const loading = ref(false)
+const refreshing = ref(false)
+const searchKeyword = ref('')
+const roomList = ref([])
+const hasError = ref(false)
+
+// 获取页面栈
+const pages = getCurrentPages()
+
+// 获取默认封面
+const getDefaultCover = () => {
+  // 使用base64编码的1x1像素图片作为占位符
+  return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzYwIiBoZWlnaHQ9IjIwMCIgdmlld0JveD0iMCAwIDM2MCAyMDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSIzNjAiIGhlaWdodD0iMjAwIiBmaWxsPSIjRjVGNUY1Ii8+CjxwYXRoIGQ9Ik0xNjUgNzVIMTk1VjEyNUgxNjVWNzVaIiBmaWxsPSIjQ0NDIi8+CjxwYXRoIGQ9Ik0xNjUgNzVMMTg1IDk1TDE5NSA3NUgxNjVaIiBmaWxsPSIjOTk5Ii8+Cjx0ZXh0IHg9IjE4MCIgeT0iMTQwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBmaWxsPSIjOTk5IiBmb250LXNpemU9IjEyIj7nm7TmkK3lsIHpnaI8L3RleHQ+Cjwvc3ZnPg=='
+}
+
+// 获取默认头像
+const getDefaultAvatar = () => {
+  return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDgiIGhlaWdodD0iNDgiIHZpZXdCb3g9IjAgMCA0OCA0OCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMjQiIGN5PSIyNCIgcj0iMjQiIGZpbGw9IiNGNUY1RjUiLz4KPGNpcmNsZSBjeD0iMjQiIGN5PSIyMCIgcj0iOCIgZmlsbD0iI0NDQyIvPgo8cGF0aCBkPSJNMTAgMzZDMTAgMzAgMTYuNSAyNiAyNCAyNkMzMS41IDI2IDM4IDMwIDM4IDM2IiBzdHJva2U9IiNDQ0MiIHN0cm9rZS13aWR0aD0iMiIgZmlsbD0ibm9uZSIvPgo8L3N2Zz4K'
+}
+
+// 图片加载错误处理
+const handleImageError = (e) => {
+  e.target.src = getDefaultCover()
+}
+
+const handleAvatarError = (e) => {
+  e.target.src = getDefaultAvatar()
+}
+
+
+const transformRoomData = (room) => {
+  return {
+    roomId: room.roomId,
+    title: room.title,
+    description: room.description,
+    streamerName: room.streamerName || 'admin', // 后端 streamerName 为空，使用默认值
+    streamerId: room.streamerId,
+    viewerCount: room.viewerCount || 0,
+    totalViewers: room.totalViewers || 0,
+    likeCount: room.likeCount || 0,
+    status: room.status,
+    statusText: room.statusText,
+    startTime: room.startTime,
+    endTime: room.endTime,
+    productId: room.productId, // 添加商品ID
+    productName: room.productName, // 添加商品名称
+    // 处理缺失的字段
+    thumbnail: room.coverImage || null, // 使用 coverImage 作为 thumbnail
+    streamerAvatar: null, // 后端没有提供，使用默认头像
+    duration: room.startTime ? Math.floor((Date.now() - new Date(room.startTime).getTime()) / 1000) : 0
+  }
+}
+
+// 从后端获取直播间列表
+const getLiveRoomList = async () => {
+  try {
+    hasError.value = false
+    const response = await getLiveRoomListAPI({
+      page: 1,
+      pageSize: 20,
+      status: 1
+    })
+    
+    if (response.code === 200 && response.data && response.data.rows) {
+      // 转换数据格式
+      const transformedRooms = response.data.rows.map(transformRoomData)
+      console.log('转换后的直播间数据:', transformedRooms)
+      return transformedRooms
+    }
+    
+    console.warn('后端返回格式异常:', response)
+    return []
+  } catch (error) {
+    console.error('获取直播间列表失败:', error)
+    hasError.value = true
+    uni.showToast({
+      title: '获取直播间列表失败',
+      icon: 'none',
+      duration: 2000
+    })
+    return []
+  }
+}
+
+// 计算属性 - 过滤后的直播间
+const filteredRooms = computed(() => {
+  if (!searchKeyword.value.trim()) {
+    return roomList.value
+  }
+  
+  const keyword = searchKeyword.value.toLowerCase().trim()
+  return roomList.value.filter(room => 
+    room.title.toLowerCase().includes(keyword) ||
+    room.streamerName.toLowerCase().includes(keyword)
+  )
+})
+
+// 清除搜索
+const clearSearch = () => {
+  searchKeyword.value = ''
+}
+
+// 刷新直播间列表
+const refreshRoomList = async () => {
+  if (loading.value) return
+  
+  loading.value = true
+  try {
+    const rooms = await getLiveRoomList()
+    roomList.value = rooms
+    console.log('获取到直播间:', rooms.length, '个')
+    
+    if (rooms.length === 0 && !hasError.value) {
+      uni.showToast({
+        title: '当前暂无直播间',
+        icon: 'none',
+        duration: 2000
+      })
+    }
+  } catch (error) {
+    console.error('刷新失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+// 下拉刷新
+const onRefresh = async () => {
+  if (refreshing.value) return
+  
+  refreshing.value = true
+  try {
+    const rooms = await getLiveRoomList()
+    roomList.value = rooms
+    console.log('刷新获取到直播间:', rooms.length, '个')
+    
+    uni.showToast({
+      title: '刷新成功',
+      icon: 'success',
+      duration: 1500
+    })
+  } catch (error) {
+    console.error('下拉刷新失败:', error)
+  } finally {
+    refreshing.value = false
+  }
+}
+
+// 上拉加载
+const onScrollToLower = () => {
+  // 可以在这里实现分页加载
+  console.log('触发上拉加载')
+}
+
+// 进入直播间
+const enterRoom = (room) => {
+  console.log('进入直播间:', room)
+  
+  // 构建URL参数，包含productId
+  let url = `/pages/live/live-streaming/live-streaming?roomId=${room.roomId}&streamerName=${encodeURIComponent(room.streamerName)}&title=${encodeURIComponent(room.title)}`
+  
+  // 如果有商品ID，添加到参数中
+  if (room.productId) {
+    url += `&productId=${room.productId}`
+  }
+  
+  // 跳转到观众页面，传递直播间信息
+  uni.navigateTo({
+    url: url
+  })
+}
+
+// 格式化观看人数
+const formatViewerCount = (count) => {
+  if (count >= 10000) {
+    return `${(count / 10000).toFixed(1)}万`
+  } else if (count >= 1000) {
+    return `${(count / 1000).toFixed(1)}k`
+  }
+  return count.toString()
+}
+
+// 格式化直播时长
+const formatDuration = (seconds) => {
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  if (hours > 0) {
+    return `${hours}小时${minutes}分钟`
+  }
+  return `${minutes}分钟`
+}
+
+// 生命周期
+onMounted(() => {
+  // 延迟一下再加载，避免页面闪烁
+  setTimeout(() => {
+    refreshRoomList()
+  }, 100)
+})
+</script>
+
+<style lang="scss">
+page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  background-color: #f7f7f8;
+}
+
+
+
+/* 滚动视图样式 */
+.viewport {
+  background-color: #f7f7f8;
+  height: 100vh;
+}
+
+/* 搜索区域样式 */
+.search-section {
+  padding: 20rpx 30rpx;
+  background-color: #cf4261;
+  
+  .search-box {
+    position: relative;
+    display: flex;
+    align-items: center;
+    height: 64rpx;
+    background-color: #fff;
+    border-radius: 32rpx;
+    padding: 0 20rpx;
+  }
+  
+  .icon-search {
+    font-size: 32rpx;
+    color: #666;
+    margin-right: 10rpx;
+  }
+  
+  .search-input {
+    flex: 1;
+    height: 64rpx;
+    font-size: 28rpx;
+    color: #333;
+  }
+  
+  .icon-close {
+    font-size: 32rpx;
+    color: #999;
+    padding: 10rpx;
+  }
+}
+
+/* 加载状态样式 */
+.loading {
+  padding: 100rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  
+  .loading-spinner {
+    width: 60rpx;
+    height: 60rpx;
+    border: 4rpx solid #f3f3f3;
+    border-top: 4rpx solid #cf4261;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20rpx;
+  }
+  
+  .loading-text {
+    font-size: 28rpx;
+    color: #999;
+  }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 空状态样式 */
+.empty {
+  padding: 120rpx 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  
+  .empty-icon {
+    font-size: 120rpx;
+    margin-bottom: 30rpx;
+    opacity: 0.5;
+  }
+  
+  .empty-text {
+    font-size: 32rpx;
+    color: #666;
+    margin-bottom: 10rpx;
+  }
+  
+  .empty-desc {
+    font-size: 26rpx;
+    color: #999;
+    margin-bottom: 30rpx;
+  }
+  
+  .empty-button {
+    padding: 20rpx 40rpx;
+    background-color: #cf4261;
+    color: #fff;
+    font-size: 28rpx;
+    border-radius: 40rpx;
+    
+    &:active {
+      background-color: #b8395a;
+    }
+  }
+}
+
+/* 直播间列表样式 */
+.room-list {
+  padding: 20rpx;
+  
+  .room-item {
+    margin-bottom: 30rpx;
+    border-radius: 12rpx;
+    background-color: #fff;
+    overflow: hidden;
+    box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.05);
+    
+    &:active {
+      transform: scale(0.98);
+      transition: transform 0.2s ease;
+    }
+  }
+  
+  .room-cover {
+    position: relative;
+    width: 100%;
+    height: 360rpx;
+    background-color: #f5f5f5;
+    
+    .cover-image {
+      width: 100%;
+      height: 100%;
+    }
+    
+    .live-badge {
+      position: absolute;
+      top: 20rpx;
+      left: 20rpx;
+      background-color: #ff4444;
+      padding: 6rpx 16rpx;
+      border-radius: 6rpx;
+      
+      .live-text {
+        font-size: 24rpx;
+        color: #fff;
+        font-weight: bold;
+      }
+    }
+    
+    .viewer-count {
+      position: absolute;
+      bottom: 20rpx;
+      right: 20rpx;
+      background-color: rgba(0, 0, 0, 0.5);
+      padding: 6rpx 16rpx;
+      border-radius: 20rpx;
+      display: flex;
+      align-items: center;
+      
+      .viewer-icon {
+        font-size: 24rpx;
+        color: #fff;
+        margin-right: 6rpx;
+      }
+      
+      .viewer-number {
+        font-size: 24rpx;
+        color: #fff;
+      }
+    }
+  }
+  
+  .room-info {
+    padding: 20rpx;
+    
+    .room-title {
+      font-size: 30rpx;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 16rpx;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .room-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      
+      .streamer-info {
+        display: flex;
+        align-items: center;
+        flex: 1;
+        margin-right: 20rpx;
+        
+        .streamer-avatar {
+          width: 48rpx;
+          height: 48rpx;
+          border-radius: 50%;
+          margin-right: 10rpx;
+          background-color: #f5f5f5;
+        }
+        
+        .streamer-name {
+          font-size: 26rpx;
+          color: #666;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+      }
+      
+      .room-stats {
+        display: flex;
+        align-items: center;
+        
+        .duration-icon {
+          font-size: 24rpx;
+          color: #999;
+          margin-right: 6rpx;
+        }
+        
+        .duration-text {
+          font-size: 24rpx;
+          color: #999;
+        }
+      }
+    }
+  }
+}
+
+/* 底部提示样式 */
+.bottom-tips {
+  text-align: center;
+  padding: 30rpx 0;
+  
+  .tips-text {
+    font-size: 24rpx;
+    color: #999;
+  }
+}
+
+/* 底部安全区域 */
+.safe-area {
+  width: 100%;
+}
+
+/* 图标样式 */
+.icon-search::before {
+  content: '\e7de';
+  font-family: 'iconfont';
+}
+
+.icon-close::before {
+  content: '\e7fc';
+  font-family: 'iconfont';
+}
+
+.icon-eye::before {
+  content: '\e78f';
+  font-family: 'iconfont';
+}
+
+.icon-clock::before {
+  content: '\e74f';
+  font-family: 'iconfont';
+}
+</style>

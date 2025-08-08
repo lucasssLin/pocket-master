@@ -1,0 +1,132 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.product.mapper.ProductMapper">
+
+    <select id="selectPageList" resultType="com.ruoyi.product.api.domain.Product">
+        select
+              p.*,
+              c1.name as category1Name,
+              c2.name as category2Name,
+              c3.name as category3Name,
+              b.name as brandName
+        from `pocket-product`.product p
+        left join `pocket-product`.brand b on b.id = p.brand_id and b.del_flag = 0
+        left join `pocket-product`.category c1 on c1.id = p.category1_id and c1.del_flag = 0
+        left join `pocket-product`.category c2 on c2.id = p.category2_id and c2.del_flag = 0
+        left join `pocket-product`.category c3 on c3.id = p.category3_id and c3.del_flag = 0
+        <where>
+            and p.del_flag = 0
+            <if test="name!=null and name!=''">and p.name like concat('%',#{product.name},'%') </if>
+            <if test="brandId!=null and brandId!=''">and p.brand_id = #{brandId} </if>
+            <if test="category1Id!=null and category1Id!=''">and p.category1_id = #{category1Id} </if>
+            <if test="category2Id!=null and category2Id!=''">and p.category2_id = #{category2Id} </if>
+            <if test="category3Id!=null and category3Id!=''">and p.category3_id = #{category3Id} </if>
+        </where>
+    </select>
+
+
+
+
+    <resultMap id="ProductVoResultMap" type="com.ruoyi.product.api.domain.vo.ProductVo">
+
+        <result property="price" column="price"/>
+        <result property="orderNum" column="orderNum"/>
+        <association property="product" javaType="com.ruoyi.product.api.domain.Product">
+            <id property="id" column="id"/>
+            <result property="name" column="name"/>
+            <result property="brandId" column="brand_id"/>
+            <result property="category1Id" column="category1_id"/>
+            <result property="category2Id" column="category2_id"/>
+            <result property="category3Id" column="category3_id"/>
+            <result property="unitName" column="unit_name"/>
+            <result property="sliderUrls" column="slider_urls"/>
+            <result property="specValue" column="spec_value"/>
+            <result property="status" column="status"/>
+            <result property="auditStatus" column="audit_status"/>
+            <result property="auditMessage" column="audit_message"/>
+            <result property="description" column="description"/>
+        </association>
+
+    </resultMap>
+    <select id="selectSpuList" resultMap="ProductVoResultMap">
+        SELECT
+            p.*,
+            MIN(ps.sale_price) AS price,
+            SUM(ss.sale_num) AS orderNum
+        FROM
+            `pocket-product`.product p
+                LEFT JOIN
+            `pocket-product`.product_sku ps ON p.id = ps.product_id and p.del_flag = 0
+                LEFT JOIN
+            `pocket-product`.sku_stock ss ON ps.id = ss.sku_id and ps.del_flag = 0
+        <where>
+            p.audit_status = 1
+            and p.status = 1
+            <if test="keyword!=null and keyword!=''"> and ps.sku_name like concat('%',#{keyword},'%')</if>
+            <if test="brandId!=null"> and p.brand_id = #{brandId}</if>
+            <if test="category1Id!=null"> and p.category1_id = #{category1Id}</if>
+            <if test="category2Id!=null"> and p.category2_id = #{category2Id}</if>
+            <if test="category3Id!=null"> and p.category3_id = #{category3Id}</if>
+
+        </where>
+        GROUP BY
+            p.id
+
+
+    </select>
+
+
+    <resultMap id="selectRelevantGoodsResultMap" type="com.ruoyi.product.api.domain.Product">
+        <id property="id" column="id"/>
+        <result property="name" column="name"/>
+        <result property="sliderUrls" column="slider_urls"/>
+        <result property="category1Id" column="category1_id"/>
+        <result property="category2Id" column="category2_id"/>
+        <result property="status" column="status"/>
+        <result property="auditStatus" column="audit_status"/>
+        <result property="auditMessage" column="audit_message"/>
+        <result property="description" column="description"/>
+        <association property="productSku" javaType="com.ruoyi.product.api.domain.ProductSku">
+            <result property="salePrice" column="min_sale_price"/>
+            <result property="discount" column="min_discount"/>
+        </association>
+    </resultMap>
+
+    <select id="selectRelevantGoodsBySpuId" resultMap="selectRelevantGoodsResultMap">
+        select
+            p.id,
+            p.name,
+            p.slider_urls,
+            p.category1_id,
+            p.category2_id,
+            p.status,
+            p.audit_status,
+            p.audit_message,
+            p.description,
+            MIN(ps.sale_price) as min_sale_price,
+            MIN(ps.discount) as min_discount,
+            SUM(ss.sale_num) AS total_sale_num
+        from
+            `pocket-product`.product p
+                left join
+            `pocket-product`.product_sku ps on p.id = ps.product_id and ps.del_flag = 0
+                left join
+            `pocket-product`.sku_stock ss on ps.id = ss.sku_id and ss.del_flag = 0
+        where
+            p.del_flag = 0
+            and ss.available_num > 0
+            and p.audit_status = 1
+            and p.status = 1
+            and p.id != #{spuId}
+            and p.category2_id = (
+            select category2_id from `pocket-product`.product WHERE id = #{spuId}
+            )
+        group by
+            p.id
+        order by
+            total_sale_num desc
+
+    </select>
+</mapper>

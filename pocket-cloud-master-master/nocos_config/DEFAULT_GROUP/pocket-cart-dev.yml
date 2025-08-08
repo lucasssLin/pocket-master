@@ -1,0 +1,6 @@
+spring:
+  data:
+    redis:
+      host: 192.168.1.12
+      port: 5782
+      password:

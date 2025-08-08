@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.product.mapper.ProductSpecsMapper">
+
+
+    <select id="selectProductSpecList" resultMap="ProductSpecsWithValuesResultMap">
+        SELECT
+            ps.id,
+            ps.product_id,
+            ps.spec_name,
+            psv.id as spec_value_id,
+            psv.spec_id,
+            psv.name,
+            psv.picture
+        FROM
+            product_specs ps
+                LEFT JOIN
+            product_spec_values psv ON ps.id = psv.spec_id
+        WHERE
+            ps.product_id = #{productId}
+    </select>
+
+
+    <resultMap id="ProductSpecsWithValuesResultMap" type="com.ruoyi.product.api.domain.ProductSpecs">
+        <id property="id" column="id"/>
+        <result property="productId" column="product_id"/>
+        <result property="specName" column="spec_name"/>
+        <collection property="values" ofType="com.ruoyi.product.api.domain.ProductSpecValues">
+            <id property="id" column="spec_value_id"/>
+            <result property="specId" column="spec_id"/>
+            <result property="name" column="name"/>
+            <result property="picture" column="picture"/>
+        </collection>
+    </resultMap>
+</mapper>

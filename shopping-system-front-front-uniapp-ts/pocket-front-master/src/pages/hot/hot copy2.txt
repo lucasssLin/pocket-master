@@ -1,0 +1,279 @@
+// /src/pages/hot/hot.vue
+<script setup lang="ts">
+import { getHotRecommendAPI } from '@/services/hotRecommend';
+import { onLoad } from '@dcloudio/uni-app';
+import { ref } from 'vue';
+
+// 定义数据类型接口
+interface ProductItem {
+  id: number;
+  name: string;
+  sliderUrls: string;
+  status: number;
+  auditStatus: number;
+  auditMessage: string;
+}
+
+interface HotItem {
+  specsList: any;
+  product: ProductItem;
+  orderNum: number;
+  price: number;
+}
+
+interface SubTypeItem {
+  id: string;
+  title: string;
+  goodsItems: {
+    total: number;
+    rows: HotItem[];
+    code: number;
+    msg: string;
+  };
+  finish?: boolean;
+}
+
+// 热门推荐页 标题和url
+const hotMap = [
+  { type: '1', title: '热门排名', url: '/recommendation/recommendationList/hotSpuList' },
+  { type: '2', title: '个性化推荐', url: '/hot/inVogue' },
+  { type: '3', title: '一站买全', url: '/hot/oneStop' },
+  { type: '4', title: '新鲜好物', url: '/hot/new' },
+]
+
+//uniapp获取页面参数
+const query = defineProps<{type: string}>()
+const currentUrlMap = hotMap.find((v)=> v.type === query.type)
+// 导航栏标题
+uni.setNavigationBarTitle({title: currentUrlMap!.title})
+
+//推荐封面图
+const bannerPicture = ref('')
+
+//推荐选项
+const subTypes = ref<SubTypeItem[]>([])
+
+//高亮下标
+const activeIndex = ref(0)
+
+//分页参数
+const pageParams = {
+  page: 1,
+  pageSize: 10
+}
+
+//获取热门推荐数据
+const getHotRecommendData = async() =>{
+  const response = await getHotRecommendAPI(currentUrlMap!.url, pageParams)
+  bannerPicture.value = response.data.bannerPicture
+  subTypes.value = response.data.subTypes
+}
+
+//滚动触底
+const onScrollToLower = async() =>{
+  //获取当前选项
+  const currentSubType = subTypes.value[activeIndex.value]
+  
+  if (currentSubType.finish) {
+    return uni.showToast({ icon: 'none', title: '没有更多数据~' })
+  }
+
+  // 手动计算总页数
+  const totalPages = Math.ceil(currentSubType.goodsItems.total / pageParams.pageSize)
+  
+  //判断是否还有更多数据
+  if (pageParams.page < totalPages) {
+    //当前页面累加
+    pageParams.page++
+  } else {
+    // 标记已结束
+    currentSubType.finish = true
+    return uni.showToast({ icon: 'none', title: '没有更多数据~' })
+  }
+
+  //调用api传参
+  const response = await getHotRecommendAPI(currentUrlMap!.url, {
+    subType: currentSubType.id,
+    page: pageParams.page,
+    pageSize: pageParams.pageSize,
+  })
+  
+  //新列表
+  const newSubTypes = response.data.subTypes[activeIndex.value]
+  
+  //数组追加
+  currentSubType.goodsItems.rows.push(...newSubTypes.goodsItems.rows)
+}
+
+// 页面加载时调用
+onLoad(()=>{
+  getHotRecommendData()
+})
+
+</script>
+
+<template>
+  <view class="viewport">
+    <!-- 推荐封面图 -->
+    <view class="cover">
+      <image
+        :src="bannerPicture"
+      ></image>
+    </view>
+    <!-- 推荐选项 -->
+    <view class="tabs">
+      <text v-for="(item,index) in subTypes" 
+      :key="item.id" class="text" 
+      :class="{active: index === activeIndex}" 
+      @tap="activeIndex = index"
+      >{{ item.title }}</text>
+    </view>
+    <!-- 推荐列表 -->
+    <scroll-view 
+    v-for="(item,index) in subTypes"
+    :key="item.id"
+    v-show="activeIndex === index"
+    scroll-y 
+    class="scroll-view"
+    @scrolltolower="onScrollToLower"
+    >
+      <view class="goods">
+        <navigator
+          hover-class="none"
+          class="goods-item"
+          v-for="goods in item.goodsItems.rows"
+          :key="goods.product.id"
+          :url="`/pages/goods/goods?id=${goods.product.id}`"
+        >
+          <image
+            class="image"
+            mode="aspectFill"
+            :src="goods.product.sliderUrls.split(',')[0]"
+          ></image>
+          <view class="name">{{ goods.product.name }}</view>
+          <view class="item-bottom">
+            <view class="price">
+              <text class="small">¥</text>
+              <text>{{ goods.price }}</text>
+            </view>
+            <view class="sales-num">销量 {{ goods.orderNum || 0 }}</view>
+          </view>
+        </navigator>
+      </view>
+      <view class="loading-text">{{item.finish ? '没有更多数据~':'正在加载...'}}</view>
+    </scroll-view>
+  </view>
+</template>
+
+<style lang="scss">
+page {
+  height: 100%;
+  background-color: #f4f4f4;
+}
+.viewport {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 180rpx 0 0;
+  position: relative;
+}
+.cover {
+  width: 750rpx;
+  height: 225rpx;
+  border-radius: 0 0 40rpx 40rpx;
+  overflow: hidden;
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+.scroll-view {
+  flex: 1;
+}
+.tabs {
+  display: flex;
+  justify-content: space-evenly;
+  height: 100rpx;
+  line-height: 90rpx;
+  margin: 0 20rpx;
+  font-size: 28rpx;
+  border-radius: 10rpx;
+  box-shadow: 0 4rpx 5rpx rgba(200, 200, 200, 0.3);
+  color: #333;
+  background-color: #fff;
+  position: relative;
+  z-index: 9;
+  .text {
+    margin: 0 20rpx;
+    position: relative;
+  }
+  .active {
+    &::after {
+      content: '';
+      width: 40rpx;
+      height: 4rpx;
+      transform: translate(-50%);
+      background-color: #cf4261;
+      position: absolute;
+      left: 50%;
+      bottom: 24rpx;
+    }
+  }
+}
+
+/* 商品列表样式 - 模仿PocketCustomerRec */
+.goods {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  padding: 0 20rpx;
+  .goods-item {
+    width: 345rpx;
+    padding: 24rpx 20rpx 20rpx;
+    margin-bottom: 20rpx;
+    border-radius: 10rpx;
+    overflow: hidden;
+    background-color: #fff;
+  }
+  .image {
+    width: 304rpx;
+    height: 304rpx;
+  }
+  .name {
+    height: 75rpx;
+    margin: 10rpx 0;
+    font-size: 26rpx;
+    color: #262626;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .item-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 4rpx;
+  }
+  .price {
+    line-height: 1;
+    color: #cf4444;
+    font-size: 26rpx;
+  }
+  .small {
+    font-size: 80%;
+  }
+  .sales-num {
+    font-size: 22rpx;
+    color: #999;
+    line-height: 1;
+  }
+}
+
+.loading-text {
+  text-align: center;
+  font-size: 28rpx;
+  color: #666;
+  padding: 20rpx 0 50rpx;
+}
+</style>

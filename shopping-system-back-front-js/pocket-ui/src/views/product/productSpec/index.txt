@@ -1,0 +1,414 @@
+<template>
+    <div class="app-container">
+      <el-form ref="queryRef" :inline="true" label-width="100px">
+        <el-form-item label="Category">
+          <el-cascader
+              :props="categoryProps"
+              style="width: 100%"
+              v-model="queryParams.categoryIdList"
+              @change="handleCategoryChange"
+          />
+        </el-form-item>
+        <el-form-item label="Specification Name" prop="specName">
+          <el-input
+              v-model="queryParams.specName"
+              placeholder="Specification name"
+              @keyup.enter.native="handleQuery"
+              clearable
+          />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">Search</el-button>
+          <el-button icon="Refresh" @click="resetQuery">Reset</el-button>
+        </el-form-item>
+      </el-form>
+  
+      <el-row :gutter="10" class="mb8">
+        <el-col :span="1.5">
+          <el-button
+              type="primary"
+              plain
+              icon="Plus"
+              @click="handleAdd"
+          >Add</el-button>
+        </el-col>
+        <el-col :span="1.5">
+          <el-button
+              type="success"
+              plain
+              icon="Edit"
+              @click="handleUpdate"
+              :disabled="single"
+          >Edit</el-button>
+        </el-col>
+        <el-col :span="1.5">
+          <el-button
+              type="danger"
+              plain
+              icon="Delete"
+              @click="handleDelete"
+              :disabled="multiple"
+          >Delete</el-button>
+        </el-col>
+        <right-toolbar></right-toolbar>
+      </el-row>
+  
+      <el-table :data="specList" @selection-change="handleSelectionChange">
+        <el-table-column type="selection" width="55" align="center" />
+        <el-table-column label="Category Name" prop="categoryName" width="150"/>
+        <el-table-column label="Specification Namae" align="left" prop="specName" width="200"/>
+        <el-table-column label="Specification Value" #default="scope" >
+          <div
+              v-for="(item1, index1) in scope.row.specValueList"
+              :key="index1"
+              style="padding: 5px; margin: 0;width: 100%;"
+          >
+            {{ item1.key }}：
+            <span
+                v-for="(item2, index2) in item1.valueList"
+                :key="index2"
+                class="div-atrr"
+            >
+            {{ item2 }}
+          </span>
+          </div>
+        </el-table-column>
+        <el-table-column prop="createTime" label="Create Time" width="160"/>
+        <el-table-column label="Operation" align="center" class-name="small-padding fixed-width" width="160">
+          <template #default="scope">
+            <el-button link type="primary" icon="Edit" @click="handleUpdate(scope.row)">Edit</el-button>
+            <el-button link type="primary" icon="Delete" @click="handleDelete(scope.row)">Delete</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+  
+      <!-- 分页条组件 -->
+      <pagination
+          v-show="total > 0"
+          :total="total"
+          @pagination="getList"
+          v-model:page="queryParams.pageNum"
+          v-model:limit="queryParams.pageSize"
+      />
+  
+
+        <!-- 添加或修改商品规格对话框 -->
+    <el-dialog :title="title" v-model="open" width="600px" append-to-body>
+    <el-form ref="specRef" :model="form" :rules="rules" label-width="80px">
+        <el-form-item label="Category" prop="categoryIdList">
+        <el-cascader
+            :props="categoryProps"
+            v-model="form.categoryIdList"
+        />
+        </el-form-item>
+        <el-form-item label="Spec Name" prop="specName">
+        <el-input v-model="form.specName" placeholder="Please enter specification name" />
+        </el-form-item>
+        <el-form-item>
+        <div
+            v-for="(item1, index1) in specValueList"
+            :key="index1"
+            style="padding: 10px; margin: 0;"
+        >
+            {{ item1.key }}：
+            <span
+                v-for="(item2, index2) in item1.valueList"
+                :key="index2"
+                class="div-atrr"
+            >
+            {{ item2 }}
+        </span>
+            <el-button size="small" @click="removeAttr(index1)">Delete</el-button>
+            <br />
+        </div>
+        </el-form-item>
+        <el-form-item label="">
+        <el-row v-if="isAdd">
+            <el-col :span="10">
+            <el-input
+                v-model="specValue.key"
+                placeholder="Specification"
+                style="width: 90%;"
+            />
+            </el-col>
+            <el-col :span="10">
+            <el-input
+                v-model="specValue.values"
+                placeholder="Value(Eg: White, Blue)"
+                style="width: 90%;"
+            />
+            </el-col>
+            <el-col :span="4">
+            <el-button size="default" @click="addSpecValue">Add</el-button>
+            </el-col>
+        </el-row>
+        <el-row v-if="!isAdd">
+            <el-col :span="4" align="left">
+            <el-button size="default" @click="isAdd = true">
+                Add New Specification
+            </el-button>
+            </el-col>
+        </el-row>
+        </el-form-item>
+
+    </el-form>
+    <template #footer>
+        <div class="dialog-footer">
+        <el-button type="primary" @click="submitForm">Confirm</el-button>
+        <el-button @click="cancel">Cancel</el-button>
+        </div>
+    </template>
+    </el-dialog>
+      
+    </div>
+  </template>
+  
+
+
+  <script setup>
+  import { getCurrentInstance, onMounted, ref, toRefs } from 'vue'
+  import { listSpec,addSpec,updateSpec,getSpec,delSpec } from '@/api/product/productSpec'
+  import { getTreeSelect } from "@/api/product/category";
+import { ElMessage,ElMessageBox} from 'element-plus';
+  
+  const{proxy} = getCurrentInstance();
+
+  // 表格数据模型
+  const specList = ref([])
+  
+  // 分页条数据模型
+  const total = ref(0)
+  //加载数据时显示的动效控制模型
+  const loading =ref(true);
+
+  const data = reactive({
+    queryParams:{
+        pageSize: 10,
+        pageNum: 1,
+        categoryIdList: [],
+        categoryId: null,
+        specName: null
+    },
+    form: {
+        categoryId: null,
+        categoryIdList: [],
+        specName: null,
+    },
+    rules:{
+        categoryIdList: [{ required: true, message: "Category can't be empty", trigger: "blur" }],
+    specName: [{ required: true, message: "Spec name can't be empty", trigger: "blur" }]
+    },
+  });
+  const {queryParams, rules, form} = toRefs(data);
+
+  const title = ref("");
+  const open = ref(false);
+
+  const specValueList = ref([]);
+  const isAdd= ref(false);
+  const specValue=ref({key:"", values:""})
+
+  const ids = ref([]);
+  const single = ref(true);
+  const multiple = ref(true);
+
+  //=====================================functions======================================
+
+  
+  ////////////////////////////分页查询/////////////////////////////////////
+  function getList(){
+    listSpec(queryParams.value).then(response=>{
+        loading.value = true;
+        specList.value = response.rows;
+        total.value = response.total;
+
+        specList.value.forEach(item=>{
+            item.specValueList=JSON.parse(item.specValue)
+        })
+        loading.value = false;
+    })
+  }
+
+  ////////////////////////////搜索和重置/////////////////////////////////////
+  //级联选择器
+  const props = {
+    lazy: true,
+    value: 'id',
+    label: 'name',
+    leaf: 'leaf',
+    async lazyLoad(node, resolve) {   // 加载数据的方法
+      if(typeof node.value == "undefined"){
+        node.value = 0
+      }
+      const{data} = await getTreeSelect(node.value);
+
+      //hasChildren判断是否有子节点
+      data.forEach(item=>{
+        item.leaf = !item.hasChildren
+      })
+      resolve(data)  // 返回数据
+    }
+  };
+  const categoryProps = ref(props)
+
+  //级联选择器监听
+  const handleCategoryChange =()=>{
+    if(queryParams.value.categoryIdList.length === 3){
+        queryParams.value.categoryId = queryParams.value.categoryIdList[2];
+    }
+  }
+
+  //搜索
+  const handleQuery=()=>{
+    getList();
+  }
+  //重置
+  const resetQuery=()=>{
+    queryParams.value={
+        id: null,
+        categoryIdList: [],
+        categoryId: null,
+        specName: null,
+    };
+    proxy.resetForm("queryRef");
+    getList();
+  }
+
+  ////////////////////////////新增/////////////////////////////////////
+  const resetForm=()=>{
+    form.value = {
+    id: null,
+    specName: null,
+    specValue: ref({key:"", values:""}),
+    categoryId: null,
+    categoryIdList: [],
+    };
+    specValueList.value = [];
+    proxy.resetForm("specRef");
+  }
+  //新增表单按钮
+  const handleAdd=()=>{
+    resetForm();
+    open.value = true;
+    title.value = "Add Product Specification";
+  }
+
+  //新增specValue
+  const addSpecValue=()=>{
+    specValueList.value.push({
+        key: specValue.value.key,
+        valueList: specValue.value.values.split(',')
+    });
+    specValue.value = {};
+    isAdd.value = true;
+  }
+  //删除specValue
+  const removeAttr =(index)=>{
+    specValueList.value.splice(index,1);
+  }
+
+  //提交表单
+  const submitForm=()=>{
+    proxy.$refs["specRef"].validate(valid=>{
+      if(valid){
+        form.value.specValue = JSON.stringify(specValueList.value);
+        console.log(specValueList.value);
+        //系统只需要三级分类id
+        form.value.categoryId = form.value.categoryIdList[2];
+
+          if(form.value.id != null){
+            updateSpec(form.value).then(response=>{
+            if(response.code === 200){
+              proxy.$modal.msgSuccess("修改成功");
+              open.value = false;
+              getList();
+            }else{
+              ElMessage.error(response.msg);
+            }
+          })
+          }else{
+            addSpec(form.value).then(response=>{
+              if(response.code === 200){
+                proxy.$modal.msgSuccess("新增成功");
+                open.value = false;
+                getList();
+              }else{
+                ElMessage.error(response.msg);
+              }
+            })
+          }
+      }else{
+        proxy.$modal.msgError("校验失败");
+      }
+    })
+  }
+  //取消按钮
+  const cancel=()=>{
+    open.value = false;
+    resetForm();
+  }
+
+  ////////////////////////////修改/////////////////////////////////////
+  const handleSelectionChange=(selection)=>{
+    ids.value = selection.map(item=>item.id);
+    single.value = selection.length != 1;
+    multiple.value = selection.length == 0;
+  }
+
+  const handleUpdate=(row)=>{
+    resetForm();
+    const _ids = row.id || ids.value;
+
+    getSpec(_ids).then(response=>{
+      form.value = response.data;
+      open.value = true;
+      title.value = "Edit Product Specification";
+      specValueList.value = JSON.parse(response.data.specValue)
+    })
+  }
+
+  ////////////////////////////删除/////////////////////////////////////
+ /** 删除按钮操作 */
+ const handleDelete=(row)=>{
+    const _ids = row.id || ids.value;
+    ElMessageBox.confirm(
+    '是否确认删除商品规格编号为"' + _ids + '"的数据项？',
+    "删除操作",
+    {
+      confirmButtonText: "确定",
+      cancelButtonText: "取消",
+      type: "warning",
+    }
+    ).then(response=>{
+          delSpec(_ids).then(response=>{
+            if(response.code === 200){
+                getList();
+                proxy.$modal.msgSuccess("删除成功");
+            }
+        }).catch(response=>{
+            proxy.$modal.msgError(response.msg);
+        })
+    })
+ }
+
+
+
+
+
+  onMounted(()=>{
+    getList();
+  })
+  
+  </script>
+
+
+
+
+  <style scoped>
+  .div-atrr {
+    padding: 5px 10px;
+    margin: 0 10px;
+    background-color: powderblue;
+    border-radius: 10px;
+  }
+  </style>

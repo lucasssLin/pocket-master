@@ -1,0 +1,7 @@
+com.ruoyi.product.api.factory.RemoteCategoryFallbackFactory
+
+com.ruoyi.product.api.factory.RemoteProductFallbackFactory
+
+com.ruoyi.product.api.factory.RemoteBrandFallbackFactory
+
+com.ruoyi.product.api.factory.RemoteBannerFallbackFactory

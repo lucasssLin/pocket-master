@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.ruoyi.product.mapper.ProductSkuMapper">
+
+
+    <select id="selectTopSale" resultType="com.ruoyi.product.api.domain.ProductSku">
+        select sku.id,
+               sku.sku_code,
+               sku.sku_name,
+               sku.product_id,
+               sku.thumb_img,
+               sku.sale_price,
+               sku.market_price,
+               sku.cost_price,
+               sku.sku_spec,
+               sku.weight,
+               sku.volume,
+               sku.status,
+               sku.remark,
+               stock.available_num as stock_num,
+               stock.sale_num
+
+        from `pocket-product`.product_sku sku
+                 left join `pocket-product`.product on product.id = sku.product_id and product.del_flag = 0
+                 left join `pocket-product`.sku_stock stock on stock.sku_id = sku.id and stock.del_flag = 0
+        where
+            sku.del_flag = 0
+          and product.status = 1
+          and product.audit_status = 1
+        order by stock.sale_num desc
+            limit 20
+    </select>
+
+
+    <select id="selectSkuList" resultType="com.ruoyi.product.api.domain.ProductSku">
+        select sku.id,
+        sku.sku_code,
+        sku.sku_name,
+        sku.product_id,
+        sku.thumb_img,
+        sku.sale_price,
+        sku.market_price,
+        sku.cost_price,
+        sku.sku_spec,
+        sku.weight,
+        sku.volume,
+        sku.status,
+
+        stock.available_num,
+        stock.sale_num
+
+        from `pocket-product`.product_sku sku
+        left join `pocket-product`.product p on p.id = sku.product_id and p.del_flag = 0
+        left join `pocket-product`.sku_stock stock on stock.sku_id = sku.id and stock.del_flag = 0
+        <where>
+            sku.del_flag = 0
+            and p.audit_status = 1
+            and p.status = 1
+            <if test="keyword!=null and keyword!=''"> and sku.sku_name like concat('%',#{keyword},'%')</if>
+            <if test="brandId!=null"> and p.brand_id = #{brandId}</if>
+            <if test="category1Id!=null"> and p.category1_id = #{category1Id}</if>
+            <if test="category2Id!=null"> and p.category2_id = #{category2Id}</if>
+            <if test="category3Id!=null"> and p.category3_id = #{category3Id}</if>
+        </where>
+        <if test="order == 1"> order by stock.sale_num desc</if>
+        <if test="order == 2"> order by sku.sale_price asc</if>
+        <if test="order == 3"> order by sku.sale_price desc</if>
+
+    </select>
+
+
+    <update id="updateSalePrice">
+        update `pocket-product`.product_sku
+        set sale_price = #{salePrice}
+        where id = #{skuId}
+    </update>
+
+
+</mapper>

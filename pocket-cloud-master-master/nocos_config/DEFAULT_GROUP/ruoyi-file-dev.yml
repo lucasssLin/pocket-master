@@ -1,0 +1,19 @@
+# 本地文件上传    
+file:
+  domain: http://192.168.1.12:9300
+  path: D:/anythings/uploadPath
+  prefix: /statics
+
+# FastDFS配置
+# fdfs:
+#   domain: http://8.129.231.12
+#   soTimeout: 3000
+#   connectTimeout: 2000
+#   trackerList: 8.129.231.12:22122
+
+# Minio配置
+minio:
+  url: http://192.168.1.12:5787
+  accessKey: admin
+  secretKey: admin123456
+  bucketName: pocket

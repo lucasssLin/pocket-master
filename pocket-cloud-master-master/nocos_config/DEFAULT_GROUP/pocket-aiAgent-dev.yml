@@ -1,0 +1,12 @@
+spring:
+    ai:
+        dashscope:
+            api-key: sk-ffa5b5e3afec48a9934ed9f3aacb7909
+            chat:
+                options:
+                    model: qwen-max    
+    data:
+        redis:
+            host: 192.168.1.12
+            port: 5782
+            password:                

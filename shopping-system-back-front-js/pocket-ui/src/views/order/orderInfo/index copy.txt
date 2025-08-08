@@ -1,0 +1,392 @@
+<template>
+    <div class="app-container">
+      <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="88px">
+        <el-form-item label="订单号" prop="orderNo">
+          <el-input
+            v-model="queryParams.orderNo"
+            placeholder="请输入订单号"
+            clearable
+            @keyup.enter="handleQuery"
+          />
+        </el-form-item>
+        <el-form-item label="订单状态">
+          <el-select
+            v-model="queryParams.orderState"
+            class="m-2"
+            placeholder="订单状态"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in orderStatusList"
+              :key="item.value"
+              :label="item.label"
+              :value="item.value"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="创建时间" style="width: 308px">
+          <el-date-picker
+            v-model="dateRange"
+            value-format="YYYY-MM-DD"
+            type="daterange"
+            range-separator="-"
+            start-placeholder="开始日期"
+            end-placeholder="结束日期"
+          ></el-date-picker>
+        </el-form-item>
+        <el-form-item label="收货人姓名">
+          <el-input
+            style="width: 100%"
+            v-model="queryParams.receiverContact"
+            placeholder="收货人姓名"
+          ></el-input>
+        </el-form-item>
+        <el-form-item label="收货人手机">
+          <el-input
+            style="width: 100%"
+            v-model="queryParams.receiverMobile"
+            placeholder="收货人手机"
+          ></el-input>
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+          <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+        </el-form-item>
+      </el-form>
+  
+      <el-row :gutter="10" class="mb8">
+        <el-col :span="1.5">
+          <el-button
+            type="warning"
+            plain
+            icon="Download"
+            @click="handleExport"
+            v-hasPermi="['order:info:export']"
+          >导出</el-button>
+        </el-col>
+        <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
+      </el-row>
+  
+      <el-table v-loading="loading" :data="orderList">
+        <el-table-column prop="orderNo" label="订单号" width="240px"/>
+        <el-table-column label="商品信息" width="300px">
+          <template #default="scope">
+            <div v-if="scope.row.orderItemList && scope.row.orderItemList.length > 0">
+              <el-image 
+                style="width: 50px; height: 50px; margin-right: 10px"
+                :src="scope.row.orderItemList[0].thumbImg" 
+                :preview-src-list="[scope.row.orderItemList[0].thumbImg]"
+              />
+              <span>{{ scope.row.orderItemList[0].skuName }}</span>
+              <div v-if="scope.row.orderItemList.length > 1" style="margin-top: 5px; color: #999;">
+                等{{ scope.row.orderItemList.length }}件商品
+              </div>
+            </div>
+            <div v-else-if="scope.row.orderItemVoList && scope.row.orderItemVoList.length > 0">
+              <el-image 
+                style="width: 50px; height: 50px; margin-right: 10px"
+                :src="scope.row.orderItemVoList[0].thumbImg" 
+                :preview-src-list="[scope.row.orderItemVoList[0].thumbImg]"
+              />
+              <span>{{ scope.row.orderItemVoList[0].skuName }}</span>
+              <div v-if="scope.row.orderItemVoList.length > 1" style="margin-top: 5px; color: #999;">
+                等{{ scope.row.orderItemVoList.length }}件商品
+              </div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column label="金额信息" width="160px">
+          <template #default="scope">
+            <div>总价：¥{{ scope.row.payMoney }}</div>
+            <div>商品金额：¥{{ scope.row.totalMoney }}</div>
+            <div>运费：¥{{ scope.row.postFee }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="订单状态" width="100px">
+          <template #default="scope">
+            <el-tag :type="getOrderStatusType(scope.row.orderState)">
+              {{ getOrderStatusText(scope.row.orderState) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="createTime" label="创建时间" width="180px" />
+        <el-table-column label="收货人信息" width="200px">
+          <template #default="scope">
+            <div>{{ scope.row.receiverContact }}</div>
+            <div>{{ scope.row.receiverMobile }}</div>
+            <div class="address-ellipsis">{{ scope.row.receiverAddress }}</div>
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" align="center" width="120px">
+          <template #default="scope">
+            <el-button link type="primary" icon="View" @click="handleDetail(scope.row)">详情</el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+  
+      <pagination
+        v-show="total > 0"
+        :total="total"
+        v-model:page="queryParams.pageNum"
+        v-model:limit="queryParams.pageSize"
+        @pagination="getList"
+      />
+  
+      <!-- 订单详情对话框 -->
+      <el-dialog title="订单详情" v-model="open" width="70%" append-to-body>
+        <el-descriptions title="基本信息" :column="2" border>
+          <el-descriptions-item label="订单编号">{{ form.orderNo }}</el-descriptions-item>
+          <el-descriptions-item label="订单状态">
+            <el-tag :type="getOrderStatusType(form.orderState)">
+              {{ getOrderStatusText(form.orderState) }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="创建时间">{{ form.createTime }}</el-descriptions-item>
+          <el-descriptions-item label="支付时间">{{ form.payTime || '未支付' }}</el-descriptions-item>
+          <el-descriptions-item label="发货时间">{{ form.consignTime || '未发货' }}</el-descriptions-item>
+          <el-descriptions-item label="完成时间">{{ form.endTime || '未完成' }}</el-descriptions-item>
+          <el-descriptions-item label="关闭时间" :span="2">{{ form.closeTime || '未关闭' }}</el-descriptions-item>
+        </el-descriptions>
+  
+        <el-divider />
+        
+        <el-descriptions title="收货信息" :column="2" border>
+          <el-descriptions-item label="收货人">{{ form.receiverContact }}</el-descriptions-item>
+          <el-descriptions-item label="联系电话">{{ form.receiverMobile }}</el-descriptions-item>
+          <el-descriptions-item label="收货地址" :span="2">{{ form.receiverAddress }}</el-descriptions-item>
+        </el-descriptions>
+  
+        <el-divider />
+        
+        <el-descriptions title="支付信息" :column="2" border>
+          <el-descriptions-item label="支付方式">
+            {{ form.payType === 1 ? '支付宝' : form.payType === 2 ? '微信' : '其他' }}
+          </el-descriptions-item>
+          <el-descriptions-item label="支付渠道">{{ form.payChannel || '未知' }}</el-descriptions-item>
+          <el-descriptions-item label="商品总额">¥{{ form.totalMoney }}</el-descriptions-item>
+          <el-descriptions-item label="运费">¥{{ form.postFee }}</el-descriptions-item>
+          <el-descriptions-item label="实付金额" :span="2">¥{{ form.payMoney }}</el-descriptions-item>
+        </el-descriptions>
+  
+        <el-divider />
+        
+        <h4>商品信息</h4>
+        <el-table :data="form.orderItemVoList" style="width: 100%">
+          <el-table-column width="80">
+            <template #default="scope">
+              <el-image 
+                style="width: 50px; height: 50px"
+                :src="scope.row.thumbImg" 
+                :preview-src-list="[scope.row.thumbImg]"
+              />
+            </template>
+          </el-table-column>
+          <el-table-column prop="skuName" label="商品名称" />
+          <el-table-column prop="attrsText" label="规格" width="150" />
+          <el-table-column label="单价" width="120">
+            <template #default="scope">
+              <div class="price-display">
+                <div class="current-price">¥{{ scope.row.skuPrice.toFixed(2) }}</div>
+                <div class="original-price">¥{{ scope.row.originalPrice.toFixed(2) }}</div>
+              </div>
+            </template>
+          </el-table-column>
+          <el-table-column prop="skuNum" label="数量" width="80" />
+          <el-table-column label="小计" width="140">
+            <template #default="scope">
+              <div class="price-display">
+                <div class="current-price">¥{{ scope.row.totalSkuPrice.toFixed(2) }}</div>
+                <div class="original-price">¥{{ scope.row.totalOriginalPrice.toFixed(2) }}</div>
+              </div>
+            </template>
+          </el-table-column>
+        </el-table>
+        
+        <el-divider />
+        
+        <div class="order-summary">
+          <div class="summary-item">
+            <span>商品总价：</span>
+            <span>¥{{ form.totalMoney?.toFixed(2) }}</span>
+          </div>
+          <div class="summary-item">
+            <span>运费：</span>
+            <span>¥{{ form.postFee?.toFixed(2) }}</span>
+          </div>
+          <div class="summary-item total">
+            <span>实付金额：</span>
+            <span class="highlight">¥{{ form.payMoney?.toFixed(2) }}</span>
+          </div>
+        </div>
+      </el-dialog>
+    </div>
+  </template>
+  
+  <script setup name="OrderInfo">
+  import { ref, reactive, toRefs, getCurrentInstance, computed } from 'vue';
+  import { listInfo, getInfo } from "@/api/order/orderInfo";
+  
+  const { proxy } = getCurrentInstance();
+  
+  // 订单状态列表
+  const orderStatusList = [
+    { value: 1, label: '待付款' },
+    { value: 2, label: '待发货' },
+    { value: 3, label: '待收货' },
+    { value: 4, label: '待评价' },
+    { value: 5, label: '已完成' },
+    { value: 6, label: '已取消' }
+  ];
+  
+  // 获取订单状态文本
+  const getOrderStatusText = (status) => {
+    switch (Number(status)) {
+      case 1: return '待付款';
+      case 2: return '待发货';
+      case 3: return '待收货';
+      case 4: return '待评价';
+      case 5: return '已完成';
+      case 6: return '已取消';
+      default: return '未知状态';
+    }
+  };
+  
+  // 获取订单状态标签类型
+  const getOrderStatusType = (status) => {
+    switch (Number(status)) {
+      case 1: return 'warning';
+      case 2: return 'primary';
+      case 3: return 'info';
+      case 4: return 'success';
+      case 5: return 'success';
+      case 6: return 'danger';
+      default: return '';
+    }
+  };
+  
+  const orderList = ref([]);
+  const open = ref(false);
+  const loading = ref(true);
+  const showSearch = ref(true);
+  const total = ref(0);
+  const dateRange = ref([]);
+  
+  const data = reactive({
+    form: {},
+    queryParams: {
+      pageNum: 1,
+      pageSize: 10,
+      orderNo: '',
+      orderState: '',
+      receiverContact: '',
+      receiverMobile: '',
+      beginTime: '',
+      endTime: ''
+    }
+  });
+  
+  const { queryParams, form } = toRefs(data);
+  
+  /** 查询订单列表 */
+  function getList() {
+    loading.value = true;
+    const query = {
+      ...queryParams.value,
+      pageNum: queryParams.value.pageNum,
+      pageSize: queryParams.value.pageSize
+    };
+    
+    if (dateRange.value && dateRange.value.length === 2) {
+      query.beginTime = dateRange.value[0];
+      query.endTime = dateRange.value[1];
+    }
+  
+    listInfo(query).then(response => {
+      orderList.value = response.data.rows;
+      total.value = response.data.total;
+      loading.value = false;
+    });
+  }
+  
+  /** 搜索按钮操作 */
+  function handleQuery() {
+    queryParams.value.pageNum = 1;
+    getList();
+  }
+  
+  /** 重置按钮操作 */
+  function resetQuery() {
+    dateRange.value = [];
+    proxy.resetForm("queryRef");
+    queryParams.value.orderState = '';
+    handleQuery();
+  }
+  
+  /** 查看订单详情操作 */
+  function handleDetail(row) {
+    const orderId = row.orderId;
+    loading.value = true;
+    getInfo(orderId).then(response => {
+      form.value = response.data;
+      open.value = true;
+      loading.value = false;
+    }).catch(() => {
+      loading.value = false;
+    });
+  }
+  
+  /** 导出按钮操作 */
+  function handleExport() {
+    proxy.download('order/info/export', {
+      ...queryParams.value,
+      beginTime: dateRange.value && dateRange.value.length > 0 ? dateRange.value[0] : '',
+      endTime: dateRange.value && dateRange.value.length > 0 ? dateRange.value[1] : ''
+    }, `order_${new Date().getTime()}.xlsx`);
+  }
+  
+  // 初始化获取数据
+  getList();
+  </script>
+  
+  <style scoped>
+  .mb8 {
+    margin-bottom: 8px;
+  }
+  .address-ellipsis {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 200px;
+  }
+  .price-display {
+    display: flex;
+    flex-direction: column;
+  }
+  .current-price {
+    font-weight: bold;
+    color: #f56c6c;
+  }
+  .original-price {
+    font-size: 12px;
+    color: #999;
+    text-decoration: line-through;
+  }
+  .order-summary {
+    margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+  .summary-item {
+    margin-bottom: 8px;
+    font-size: 14px;
+  }
+  .summary-item.total {
+    font-size: 16px;
+    font-weight: bold;
+  }
+  .highlight {
+    color: #f56c6c;
+    font-size: 18px;
+  }
+  </style>

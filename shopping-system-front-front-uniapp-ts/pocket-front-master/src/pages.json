@@ -1,0 +1,221 @@
+{
+	// 组件自动导入
+	"easycom": {
+		"autoscan": true,
+		"custom": {
+			// uni-ui 规则如下配置
+			"^uni-(.*)": "@dcloudio/uni-ui/lib/uni-$1/uni-$1.vue",
+			// 以 Pocket 开头的组件，在 components 目录中查找
+			"^Pocket(.*)": "@/components/Pocket$1.vue"
+		}
+	},
+	"pages": [
+		//pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+		{
+			"path": "pages/index/index",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTextStyle": "white",
+				"navigationBarTitleText": "Home"
+			}
+		},
+		{
+			"path": "pages/my/my",
+			"style": {
+				"navigationStyle": "custom",
+				"navigationBarTextStyle": "white",
+				"navigationBarTitleText": "My"
+			}
+		},
+		{
+			"path": "pages/cart/cart",
+			"style": {
+				"navigationBarTitleText": "Cart"
+			}
+		},
+		{
+			"path": "pages/cart/cart_from_product",
+			"style": {
+				"navigationBarTitleText": "Cart"
+			}
+		},
+		{
+			"path": "pages/category/category",
+			"style": {
+				"navigationBarTitleText": "Category"
+			}
+		},
+		{
+			"path": "pages/login/login",
+			"style": {
+				"navigationBarTitleText": "Login"
+			}
+		},
+		{
+			"path": "pages/hot/hot",
+			"style": {
+				"navigationBarTitleText": "HotRec"
+			}
+		},
+		{
+			"path": "pages/goods/goods",
+			"style": {
+				"navigationBarTitleText": "Product Details"
+			}
+		},
+		{
+			"path": "pages/register/register",
+			"style": {
+				"navigationBarTitleText": "Register"
+			}
+		},
+		{
+			"path": "pages/live/live-streaming/live-streaming",
+			"style": {
+				"navigationBarTitleText": "Live-Streaming"
+			}
+		},
+		{
+			"path": "pages/live/liveList/liveList",
+			"style": {
+				"navigationBarTitleText": "Live List"
+			}
+		}
+	],
+	"globalStyle": {
+		"navigationBarTextStyle": "black",
+		"navigationBarTitleText": "",
+		"navigationBarBackgroundColor": "#F8F8F8",
+		"backgroundColor": "#F8F8F8"
+	},
+	// 设置 TabBar
+	"tabBar": {
+		"color": "#333",
+		"selectedColor": "#cf4261",
+		"backgroundColor": "#fff",
+		"borderStyle": "white",
+		"list": [
+			{
+				"text": "Home",
+				"pagePath": "pages/index/index",
+				"iconPath": "static/tabs/home_default.png",
+				"selectedIconPath": "static/tabs/home_selected.png"
+			},
+			{
+				"text": "Category",
+				"pagePath": "pages/category/category",
+				"iconPath": "static/tabs/category_default.png",
+				"selectedIconPath": "static/tabs/category_selected.png"
+			},
+			{
+				"text": "Cart",
+				"pagePath": "pages/cart/cart",
+				"iconPath": "static/tabs/cart_default.png",
+				"selectedIconPath": "static/tabs/cart_selected.png"
+			},
+			{
+				"text": "User",
+				"pagePath": "pages/my/my",
+				"iconPath": "static/tabs/user_default.png",
+				"selectedIconPath": "static/tabs/user_selected.png"
+			}
+		]
+	},
+	//分包加载规则
+	"subPackages": [
+		{
+			"root": "pagesMember",
+			"pages": [
+				{
+					"path": "settings/settings",
+					"style": {
+						"navigationBarTitleText": "设置"
+					}
+				},
+				{
+					"path": "profile/profile",
+					"style": {
+						"navigationStyle": "custom",
+						"navigationBarTextStyle": "white",
+						"navigationBarTitleText": "Profile"
+					}
+				},
+				{
+					"path": "address/address",
+					"style": {
+						"navigationBarTitleText": "地址管理"
+					}
+				},
+				{
+					"path": "address-form/address-form",
+					"style": {
+						"navigationBarTitleText": ""
+					}
+				},
+				{
+					"path": "myCollect/myCollect",
+					"style": {
+						"navigationBarTitleText": "我的收藏"
+					}
+				},
+				{
+					"path": "browseHistory/browseHistory",
+					"style": {
+						"navigationBarTitleText": "浏览记录"
+					}
+				}
+			]
+		},
+		{
+			"root": "pagesOrder",
+			"pages": [
+				{
+					"path": "createOrder/createOrder",
+					"style": {
+						"navigationBarTitleText": "创建订单"
+					}
+				},
+				{
+					"path": "orderDetails/orderDetails",
+					"style": {
+						"navigationBarTitleText": "订单详情",
+						"navigationStyle": "custom"
+					}
+				},
+				{
+					"path": "paymentResult/paymentResult",
+					"style": {
+						"navigationBarTitleText": "支付结果"
+					}
+				},
+				{
+					"path": "orderList/orderList",
+					"style": {
+						"navigationBarTitleText": "订单列表"
+					}
+				},
+				{
+					"path": "paymentSelection/paymentSelection",
+					"style": {
+						"navigationBarTitleText": "支付"
+					}
+				},
+				{
+					"path": "alipayView/alipayView",
+					"style": {
+						"navigationBarTitleText": "支付宝支付"
+					}
+				}
+			]
+		}
+	],
+	// 预下载规则
+	"preloadRule": {
+		"pages/my/my": {
+			"network": "all",
+			"packages": [
+				"pagesMember"
+			]
+		}
+	}
+}

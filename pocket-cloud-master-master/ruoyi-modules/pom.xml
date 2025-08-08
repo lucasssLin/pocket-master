@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <parent>
+        <groupId>com.ruoyi</groupId>
+        <artifactId>Pocket-Cloud-master</artifactId>
+        <version>3.6.5</version>
+    </parent>
+    <modelVersion>4.0.0</modelVersion>
+
+    <modules>
+        <module>ruoyi-system</module>
+        <module>ruoyi-gen</module>
+        <module>ruoyi-job</module>
+        <module>ruoyi-file</module>
+        <module>pocket-product</module>
+        <module>pocket-user</module>
+        <module>pocket-order</module>
+        <module>pocket-channel</module>
+        <module>pocket-cart</module>
+        <module>pocket-payment</module>
+        <module>pocket-aiagent</module>
+        <module>pocket-recommendation</module>
+        <module>pocket-live</module>
+    </modules>
+
+    <artifactId>ruoyi-modules</artifactId>
+    <packaging>pom</packaging>
+
+    <description>
+        ruoyi-modules业务模块
+    </description>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>pocket-api-product</artifactId>
+            <version>3.6.5</version>
+        </dependency>
+
+
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>pocket-api-user</artifactId>
+            <version>3.6.5</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>pocket-api-cart</artifactId>
+            <version>3.6.5</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.ruoyi</groupId>
+            <artifactId>pocket-api-order</artifactId>
+            <version>3.6.5</version>
+        </dependency>
+
+    </dependencies>
+
+
+</project>

@@ -1,0 +1,3 @@
+com.ruoyi.user.api.factory.RemoteUserInfoFallbackFactory
+
+com.ruoyi.user.api.factory.RemoteUserAddressFallbackFactory

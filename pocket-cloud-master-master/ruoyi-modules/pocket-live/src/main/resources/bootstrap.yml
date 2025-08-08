@@ -1,0 +1,51 @@
+# Tomcat
+server:
+  port: 9213
+
+# Spring
+spring:
+  application:
+    # 应用名称
+    name: pocket-live
+  profiles:
+    # 环境配置
+    active: dev
+  cloud:
+    nacos:
+      discovery:
+        # 服务注册地址
+        server-addr: 192.168.1.12:5783
+      config:
+        # 配置中心地址
+        server-addr: 192.168.1.12:5783
+        # 配置文件格式
+        file-extension: yml
+        # 共享配置
+        shared-configs:
+          - application-${spring.profiles.active}.${spring.cloud.nacos.config.file-extension}
+
+# WebSocket配置
+websocket:
+  # 最大连接数
+  max-connections: 1000
+  # 心跳间隔（秒）
+  heartbeat-interval: 30
+  # 连接超时时间（秒）
+  connection-timeout: 60
+
+# 直播配置
+live:
+  # 默认直播间配置
+  room:
+    # 最大观看人数
+    max-viewers: 1000
+    # 直播间默认时长（小时）
+    default-duration: 24
+  # WebRTC配置
+  webrtc:
+    # STUN服务器
+    stun-servers:
+      - stun:stun.l.google.com:19302
+      - stun:stun1.l.google.com:19302
+    # TURN服务器（生产环境需配置）
+    turn-servers: [] 

@@ -1,0 +1,842 @@
+<template>
+  <div class="app-container">
+    <el-form :model="queryParams" ref="queryRef" :inline="true" v-show="showSearch" label-width="88px">
+      <el-form-item label="订单号" prop="orderNo">
+        <el-input
+          v-model="queryParams.orderNo"
+          placeholder="请输入订单号"
+          clearable
+          @keyup.enter="handleQuery"
+        />
+      </el-form-item>
+      <el-form-item label="订单状态">
+        <el-select
+          v-model="queryParams.orderState"
+          class="m-2"
+          placeholder="订单状态"
+          style="width: 100%"
+        >
+          <el-option
+            v-for="item in orderStatusList"
+            :key="item.value"
+            :label="item.label"
+            :value="item.value"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="创建时间" style="width: 308px">
+        <el-date-picker
+          v-model="dateRange"
+          value-format="YYYY-MM-DD"
+          type="daterange"
+          range-separator="-"
+          start-placeholder="开始日期"
+          end-placeholder="结束日期"
+        ></el-date-picker>
+      </el-form-item>
+      <el-form-item label="收货人姓名">
+        <el-input
+          style="width: 100%"
+          v-model="queryParams.receiverContact"
+          placeholder="收货人姓名"
+        ></el-input>
+      </el-form-item>
+      <el-form-item label="收货人手机">
+        <el-input
+          style="width: 100%"
+          v-model="queryParams.receiverMobile"
+          placeholder="收货人手机"
+        ></el-input>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" icon="Search" @click="handleQuery">搜索</el-button>
+        <el-button icon="Refresh" @click="resetQuery">重置</el-button>
+      </el-form-item>
+    </el-form>
+
+    <el-row :gutter="10" class="mb8">
+      <el-col :span="1.5">
+        <el-button
+          type="warning"
+          plain
+          icon="Download"
+          @click="handleExport"
+          v-hasPermi="['order:info:export']"
+        >导出</el-button>
+      </el-col>
+      <right-toolbar v-model:showSearch="showSearch" @queryTable="getList"></right-toolbar>
+    </el-row>
+
+    <el-table v-loading="loading" :data="orderList">
+      <el-table-column prop="orderNo" label="订单号" width="240px"/>
+      <el-table-column label="商品信息" width="300px">
+        <template #default="scope">
+          <div v-if="scope.row.orderItemList && scope.row.orderItemList.length > 0">
+            <el-image 
+              style="width: 50px; height: 50px; margin-right: 10px"
+              :src="scope.row.orderItemList[0].thumbImg" 
+              :preview-src-list="[scope.row.orderItemList[0].thumbImg]"
+            />
+            <span>{{ scope.row.orderItemList[0].skuName }}</span>
+            <div v-if="scope.row.orderItemList.length > 1" style="margin-top: 5px; color: #999;">
+              等{{ scope.row.orderItemList.length }}件商品
+            </div>
+          </div>
+          <div v-else-if="scope.row.orderItemVoList && scope.row.orderItemVoList.length > 0">
+            <el-image 
+              style="width: 50px; height: 50px; margin-right: 10px"
+              :src="scope.row.orderItemVoList[0].thumbImg" 
+              :preview-src-list="[scope.row.orderItemVoList[0].thumbImg]"
+            />
+            <span>{{ scope.row.orderItemVoList[0].skuName }}</span>
+            <div v-if="scope.row.orderItemVoList.length > 1" style="margin-top: 5px; color: #999;">
+              等{{ scope.row.orderItemVoList.length }}件商品
+            </div>
+          </div>
+        </template>
+      </el-table-column>
+      <el-table-column label="金额信息" width="160px">
+        <template #default="scope">
+          <div>总价：¥{{ scope.row.payMoney }}</div>
+          <div>商品金额：¥{{ scope.row.totalMoney }}</div>
+          <div>运费：¥{{ scope.row.postFee }}</div>
+        </template>
+      </el-table-column>
+      <el-table-column label="订单状态" width="100px">
+        <template #default="scope">
+          <el-tag :type="getOrderStatusType(scope.row.orderState)">
+            {{ getOrderStatusText(scope.row.orderState) }}
+          </el-tag>
+        </template>
+      </el-table-column>
+      <el-table-column prop="createTime" label="创建时间" width="180px" />
+      <el-table-column label="收货人信息" width="200px">
+        <template #default="scope">
+          <div>{{ scope.row.receiverContact }}</div>
+          <div>{{ scope.row.receiverMobile }}</div>
+          <div class="address-ellipsis">{{ scope.row.receiverAddress }}</div>
+        </template>
+      </el-table-column>
+      <el-table-column label="操作" align="center" width="120px">
+        <template #default="scope">
+          <el-button link type="primary" icon="View" @click="handleDetail(scope.row)">详情</el-button>
+        </template>
+      </el-table-column>
+    </el-table>
+
+    <pagination
+      v-show="total > 0"
+      :total="total"
+      v-model:page="queryParams.pageNum"
+      v-model:limit="queryParams.pageSize"
+      @pagination="getList"
+    />
+
+    <!-- 订单详情对话框 -->
+    <el-dialog title="订单详情" v-model="open" width="70%" append-to-body>
+      <el-descriptions title="基本信息" :column="2" border>
+        <el-descriptions-item label="订单编号">{{ form.orderNo }}</el-descriptions-item>
+        <el-descriptions-item label="订单状态">
+          <el-tag :type="getOrderStatusType(form.orderState)">
+            {{ getOrderStatusText(form.orderState) }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ form.createTime }}</el-descriptions-item>
+        <el-descriptions-item label="支付时间">{{ form.payTime }}</el-descriptions-item>
+        <el-descriptions-item label="发货时间">{{ form.consignTime || '未发货' }}</el-descriptions-item>
+        <el-descriptions-item label="完成时间">{{ form.endTime || '未完成' }}</el-descriptions-item>
+        <el-descriptions-item label="关闭时间" :span="2">{{ form.closeTime || '未关闭' }}</el-descriptions-item>
+      </el-descriptions>
+
+      <el-divider />
+      
+      <el-descriptions title="收货信息" :column="2" border>
+        <el-descriptions-item label="收货人">{{ form.receiverContact }}</el-descriptions-item>
+        <el-descriptions-item label="联系电话">{{ form.receiverMobile }}</el-descriptions-item>
+        <el-descriptions-item label="收货地址" :span="2">{{ form.receiverAddress }}</el-descriptions-item>
+      </el-descriptions>
+
+      <el-divider />
+      
+      <el-descriptions title="支付信息" :column="2" border>
+        <el-descriptions-item label="支付方式">
+          {{ form.payType === 1 ? 'MockPayment' : form.payType === 2 ? '微信' : '支付宝' }}
+        </el-descriptions-item>
+        <el-descriptions-item label="支付渠道">{{ form.payChannel || '未知' }}</el-descriptions-item>
+        <el-descriptions-item label="商品总额">¥{{ form.totalMoney }}</el-descriptions-item>
+        <el-descriptions-item label="运费">¥{{ form.postFee }}</el-descriptions-item>
+        <el-descriptions-item label="实付金额" :span="2">¥{{ form.payMoney }}</el-descriptions-item>
+      </el-descriptions>
+
+      <el-divider />
+      
+      <h4>商品信息</h4>
+      <el-table :data="form.orderItemVoList" style="width: 100%">
+        <el-table-column width="80">
+          <template #default="scope">
+            <el-image 
+              style="width: 50px; height: 50px"
+              :src="scope.row.thumbImg" 
+              :preview-src-list="[scope.row.thumbImg]"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column prop="skuName" label="商品名称" />
+        <el-table-column prop="attrsText" label="规格" width="150" />
+        <el-table-column label="单价" width="120">
+          <template #default="scope">
+            <div class="price-display">
+              <div class="current-price">¥{{ scope.row.skuPrice.toFixed(2) }}</div>
+              <div class="original-price">¥{{ scope.row.originalPrice.toFixed(2) }}</div>
+            </div>
+          </template>
+        </el-table-column>
+        <el-table-column prop="skuNum" label="数量" width="80" />
+        <el-table-column label="小计" width="140">
+          <template #default="scope">
+            <div class="price-display">
+              <div class="current-price">¥{{ scope.row.totalSkuPrice.toFixed(2) }}</div>
+              <div class="original-price">¥{{ scope.row.totalOriginalPrice.toFixed(2) }}</div>
+            </div>
+          </template>
+        </el-table-column>
+      </el-table>
+      
+      <el-divider />
+      
+      <div class="order-summary">
+        <div class="summary-item">
+          <span>商品总价：</span>
+          <span>¥{{ form.totalMoney?.toFixed(2) }}</span>
+        </div>
+        <div class="summary-item">
+          <span>运费：</span>
+          <span>¥{{ form.postFee?.toFixed(2) }}</span>
+        </div>
+        <div class="summary-item total">
+          <span>实付金额：</span>
+          <span class="highlight">¥{{ form.payMoney?.toFixed(2) }}</span>
+        </div>
+      </div>
+    </el-dialog>
+
+    <!-- AI 助手浮动按钮 -->
+    <div class="ai-assistant-button" @click="toggleAiAssistant">
+      <el-badge :value="unreadMessages" :hidden="unreadMessages === 0" class="ai-badge">
+        <el-button type="primary" :icon="aiAssistantVisible ? 'Close' : 'ChatDotRound'" circle></el-button>
+      </el-badge>
+    </div>
+
+    <!-- AI 助手对话窗口 -->
+    <transition name="slide">
+      <div class="ai-assistant-panel" v-show="aiAssistantVisible">
+        <div class="ai-header">
+          <div class="ai-title">
+            <div class="ai-avatar">AI</div>
+            <span>智能订单助手</span>
+          </div>
+          <el-button type="text" @click="toggleAiAssistant" icon="Close" class="close-btn"></el-button>
+        </div>
+        
+        <div class="ai-body" ref="chatContainer">
+          <div class="ai-messages">
+            <div class="message system">
+              <div class="message-content">
+                <p>您好！我是您的订单智能助手。我可以帮您查询订单信息、解答订单问题或提供订单管理建议。请问有什么可以帮到您的？</p>
+              </div>
+            </div>
+            
+            <div v-for="(message, index) in messages" :key="index" :class="['message', message.type]">
+              <template v-if="message.type === 'user'">
+                <div class="message-avatar">
+                  <el-avatar :size="36" icon="User"></el-avatar>
+                </div>
+              </template>
+              <template v-else>
+                <div class="message-avatar">
+                  <div class="ai-message-avatar">AI</div>
+                </div>
+              </template>
+              
+              <div class="message-content">
+                <p v-if="message.type === 'assistant' && message.isLoading" class="typing-indicator">
+                  <span></span><span></span><span></span>
+                </p>
+                <p v-else v-html="formatMessage(message.content)"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="ai-footer">
+          <el-input
+            v-model="userInput"
+            placeholder="输入您的问题..."
+            :disabled="isLoading"
+            @keyup.enter="sendMessage"
+            clearable
+          >
+            <template #append>
+              <el-button :icon="isLoading ? 'Loading' : 'Position'" @click="sendMessage" :loading="isLoading"></el-button>
+            </template>
+          </el-input>
+          <div class="ai-suggestions">
+            <el-tag v-for="(suggestion, index) in suggestions" :key="index" @click="useQuerySuggestion(suggestion)" size="small" effect="plain" class="suggestion-tag">{{ suggestion }}</el-tag>
+          </div>
+        </div>
+      </div>
+    </transition>
+  </div>
+</template>
+
+<script setup name="OrderInfo">
+import { ref, reactive, toRefs, getCurrentInstance, computed, watch, nextTick, onMounted } from 'vue';
+import { listInfo, getInfo } from "@/api/order/orderInfo";
+
+// 保持原有的订单功能代码
+const { proxy } = getCurrentInstance();
+const orderList = ref([]);
+const open = ref(false);
+const loading = ref(true);
+const showSearch = ref(true);
+const total = ref(0);
+const dateRange = ref([]);
+
+// 订单状态列表
+const orderStatusList = [
+  { value: 1, label: '待付款' },
+  { value: 2, label: '待发货' },
+  { value: 3, label: '待收货' },
+  { value: 4, label: '待评价' },
+  { value: 5, label: '已完成' },
+  { value: 6, label: '已取消' }
+];
+
+// 获取订单状态文本
+const getOrderStatusText = (status) => {
+  switch (Number(status)) {
+    case 1: return '待付款';
+    case 2: return '待发货';
+    case 3: return '待收货';
+    case 4: return '待评价';
+    case 5: return '已完成';
+    case 6: return '已取消';
+    default: return '未知状态';
+  }
+};
+
+// 获取订单状态标签类型
+const getOrderStatusType = (status) => {
+  switch (Number(status)) {
+    case 1: return 'warning';
+    case 2: return 'primary';
+    case 3: return 'info';
+    case 4: return 'success';
+    case 5: return 'success';
+    case 6: return 'danger';
+    default: return '';
+  }
+};
+
+const data = reactive({
+  form: {},
+  queryParams: {
+    pageNum: 1,
+    pageSize: 10,
+    orderNo: '',
+    orderState: '',
+    receiverContact: '',
+    receiverMobile: '',
+    beginTime: '',
+    endTime: ''
+  }
+});
+
+const { queryParams, form } = toRefs(data);
+
+/** 查询订单列表 */
+function getList() {
+  loading.value = true;
+  const query = {
+    ...queryParams.value
+  };
+  
+  if (dateRange.value && dateRange.value.length === 2) {
+    query.beginTime = dateRange.value[0];
+    query.endTime = dateRange.value[1];
+  }
+
+  listInfo(query).then(response => {
+    orderList.value = response.data.rows;
+    total.value = response.data.total;
+    loading.value = false;
+  });
+}
+
+/** 搜索按钮操作 */
+function handleQuery() {
+  queryParams.value.pageNum = 1;
+  getList();
+}
+
+/** 重置按钮操作 */
+function resetQuery() {
+  dateRange.value = [];
+  proxy.resetForm("queryRef");
+  queryParams.value.orderState = '';
+  handleQuery();
+}
+
+/** 查看订单详情操作 */
+function handleDetail(row) {
+  const orderId = row.orderId;
+  loading.value = true;
+  getInfo(orderId).then(response => {
+    form.value = response.data;
+    open.value = true;
+    loading.value = false;
+  }).catch(() => {
+    loading.value = false;
+  });
+}
+
+/** 导出按钮操作 */
+function handleExport() {
+  proxy.download('order/info/export', {
+    ...queryParams.value,
+    beginTime: dateRange.value && dateRange.value.length > 0 ? dateRange.value[0] : '',
+    endTime: dateRange.value && dateRange.value.length > 0 ? dateRange.value[1] : ''
+  }, `order_${new Date().getTime()}.xlsx`);
+}
+
+// 初始化获取数据
+getList();
+
+// ---------- AI 助手功能 ----------
+
+// AI 助手状态
+const aiAssistantVisible = ref(false);
+const unreadMessages = ref(0);
+const userInput = ref('');
+const messages = ref([]);
+const isLoading = ref(false);
+const chatContainer = ref(null);
+
+// 常用问题建议
+const suggestions = ref([
+  '如何筛选待发货订单？',
+  '怎样导出订单数据？',
+  '订单状态说明',
+  '查询订单详情'
+]);
+
+// 切换 AI 助手显示状态
+const toggleAiAssistant = () => {
+  aiAssistantVisible.value = !aiAssistantVisible.value;
+  if (aiAssistantVisible.value) {
+    unreadMessages.value = 0;
+    nextTick(() => {
+      scrollToBottom();
+    });
+  }
+};
+
+// 格式化消息内容，处理换行和链接
+const formatMessage = (content) => {
+  if (!content) return '';
+  return content
+    .replace(/\n/g, '<br>')
+    .replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank">$1</a>');
+};
+
+// 使用问题建议
+const useQuerySuggestion = (suggestion) => {
+  userInput.value = suggestion;
+  sendMessage();
+};
+
+// 发送消息并获取 AI 回复 - 修复流式响应累加问题
+const sendMessage = async () => {
+  if (!userInput.value.trim() || isLoading.value) return;
+
+  // 添加用户消息
+  const userMessage = userInput.value.trim();
+  messages.value.push({
+    type: 'user',
+    content: userMessage
+  });
+
+  // 清空输入框
+  userInput.value = '';
+  
+  // 添加 AI 正在输入的消息
+  const aiMessageIndex = messages.value.length;
+  messages.value.push({
+    type: 'assistant',
+    content: '',
+    isLoading: true
+  });
+  
+  // 滚动到底部
+  await nextTick();
+  scrollToBottom();
+  
+  // 设置加载状态
+  isLoading.value = true;
+
+  try {
+    // 创建事件源连接
+    const eventSource = new EventSource(`/dev-api/aiAgent/ai/aiAgent?message=${encodeURIComponent(userMessage)}`);
+    
+    // 存储当前完整响应
+    let aiResponse = '';
+    
+    // 监听消息事件
+    eventSource.onmessage = (event) => {
+      // 检查是否为结束标记
+      if (event.data === "[DONE]" || event.data.includes('[DONE]')) {
+        eventSource.close();
+        isLoading.value = false;
+        return;
+      }
+      
+      try {
+        // 提取内容 - 移除"data:"前缀
+        let text = event.data;
+        
+        // 移除SSE格式中的"data:"前缀
+        if (text.startsWith('data:')) {
+          text = text.substring(5).trim();
+        }
+        
+        // 累加响应内容
+        aiResponse += text;
+        
+        // 更新 AI 回复内容
+        if (messages.value[aiMessageIndex]) {
+          messages.value[aiMessageIndex].content = aiResponse;
+          messages.value[aiMessageIndex].isLoading = false;
+        }
+        
+        // 滚动到底部
+        scrollToBottom();
+      } catch (error) {
+        console.error('Error parsing message:', error);
+      }
+    };
+    
+    // 监听错误事件
+    eventSource.onerror = (error) => {
+      console.error('EventSource error:', error);
+      eventSource.close();
+      isLoading.value = false;
+      
+      // 更新 AI 消息为错误提示
+      if (messages.value[aiMessageIndex] && messages.value[aiMessageIndex].isLoading) {
+        messages.value[aiMessageIndex].content = '很抱歉，处理您的请求时出现了问题，请稍后再试。';
+        messages.value[aiMessageIndex].isLoading = false;
+      }
+      
+      // 滚动到底部
+      scrollToBottom();
+    };
+  } catch (error) {
+    console.error('Error sending message:', error);
+    isLoading.value = false;
+    
+    // 更新 AI 消息为错误提示
+    if (messages.value[aiMessageIndex] && messages.value[aiMessageIndex].isLoading) {
+      messages.value[aiMessageIndex].content = '很抱歉，处理您的请求时出现了问题，请稍后再试。';
+      messages.value[aiMessageIndex].isLoading = false;
+    }
+  }
+};
+
+// 滚动到对话底部
+const scrollToBottom = () => {
+  if (chatContainer.value) {
+    chatContainer.value.scrollTop = chatContainer.value.scrollHeight;
+  }
+};
+
+// 监视 AI 助手可见性，当不可见时增加未读消息数
+watch(() => messages.value.length, (newLength, oldLength) => {
+  if (!aiAssistantVisible.value && newLength > oldLength) {
+    unreadMessages.value++;
+  }
+});
+
+// 组件挂载完成时获取订单数据
+onMounted(() => {
+  getList();
+});
+</script>
+
+<style scoped>
+/* 原有样式 */
+.mb8 {
+  margin-bottom: 8px;
+}
+.address-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 200px;
+}
+.price-display {
+  display: flex;
+  flex-direction: column;
+}
+.current-price {
+  font-weight: bold;
+  color: #f56c6c;
+}
+.original-price {
+  font-size: 12px;
+  color: #999;
+  text-decoration: line-through;
+}
+.order-summary {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.summary-item {
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+.summary-item.total {
+  font-size: 16px;
+  font-weight: bold;
+}
+.highlight {
+  color: #f56c6c;
+  font-size: 18px;
+}
+
+/* AI 助手样式 */
+.ai-assistant-button {
+  position: fixed;
+  right: 30px;
+  bottom: 30px;
+  z-index: 999;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 50%;
+  transition: all 0.3s;
+}
+
+.ai-assistant-button:hover {
+  transform: scale(1.05);
+}
+
+.ai-badge :deep(.el-badge__content) {
+  border: none;
+}
+
+.ai-assistant-panel {
+  position: fixed;
+  right: 30px;
+  bottom: 90px;
+  width: 380px;
+  height: 600px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  z-index: 998;
+  overflow: hidden;
+}
+
+.ai-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px;
+  background: linear-gradient(90deg, #3370ff, #5e96ff);
+  color: white;
+  border-radius: 12px 12px 0 0;
+}
+
+.ai-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.ai-avatar {
+  width: 32px;
+  height: 32px;
+  background-color: #fff;
+  color: #3370ff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.ai-message-avatar {
+  width: 36px;
+  height: 36px;
+  background-color: #3370ff;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.close-btn {
+  color: white;
+}
+
+.ai-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  background-color: #f7f8fc;
+}
+
+.ai-messages {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message {
+  display: flex;
+  gap: 8px;
+  max-width: 80%;
+}
+
+.message.system {
+  align-self: center;
+  text-align: center;
+  max-width: 90%;
+  margin-bottom: 16px;
+}
+
+.message.system .message-content {
+  background-color: #f0f2f5;
+  border-radius: 10px;
+  padding: 10px 16px;
+  font-size: 14px;
+  color: #666;
+}
+
+.message.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.message.assistant {
+  align-self: flex-start;
+}
+
+.message-avatar {
+  display: flex;
+  align-items: flex-start;
+}
+
+.message-content {
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.message.user .message-content {
+  background-color: #e8f3ff;
+  color: #333;
+  border-top-right-radius: 4px;
+}
+
+.message.assistant .message-content {
+  background-color: white;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  color: #333;
+  border-top-left-radius: 4px;
+}
+
+.ai-footer {
+  padding: 16px;
+  border-top: 1px solid #eee;
+  background-color: #fff;
+}
+
+.ai-suggestions {
+  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.suggestion-tag {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.suggestion-tag:hover {
+  background-color: #e8f3ff;
+  color: #3370ff;
+}
+
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  column-gap: 5px;
+  margin: 0;
+}
+
+.typing-indicator span {
+  height: 8px;
+  width: 8px;
+  background-color: #3370ff;
+  border-radius: 50%;
+  display: block;
+  opacity: 0.4;
+  animation: typing 1s infinite ease-in-out;
+}
+
+.typing-indicator span:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.typing-indicator span:nth-child(2) {
+  animation-delay: 0.3s;
+}
+
+.typing-indicator span:nth-child(3) {
+  animation-delay: 0.5s;
+}
+
+@keyframes typing {
+  0%, 100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  50% {
+    transform: translateY(-8px);
+    opacity: 0.8;
+  }
+}
+
+/* 滑动动画 */
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.3s ease-out;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+  transform: translateX(30px);
+  opacity: 0;
+}
+</style>

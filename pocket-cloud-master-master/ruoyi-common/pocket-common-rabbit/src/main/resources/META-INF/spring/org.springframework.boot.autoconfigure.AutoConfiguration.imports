@@ -1,0 +1,3 @@
+com.ruoyi.common.rabbit.service.RabbitService
+
+com.ruoyi.common.rabbit.config.RabbitInitConfigApplicationListener

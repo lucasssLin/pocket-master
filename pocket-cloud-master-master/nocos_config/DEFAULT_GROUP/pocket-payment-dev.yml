@@ -1,0 +1,46 @@
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*Mapper.xml
+  type-aliases-package: com.ruoyi.**.domain
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl # 查看日志
+# spring配置
+spring:
+  data:
+    redis:
+      host: 192.168.1.12
+      port: 5782
+      password:
+  rabbitmq:
+    host: 192.168.1.12
+    port: 5672
+    username: guest
+    password: guest
+    publisher-confirm-type: CORRELATED
+    publisher-returns: true
+    listener:
+      simple:
+        acknowledge-mode: manual #默认情况下消息消费者是自动确认消息的，如果要手动确认消息则需要修改确认模式为manual
+        prefetch: 1 # 消费者每次从队列获取的消息数量。此属性当不设置时为：轮询分发，设置为1为：公平分发
+  datasource:
+    type: com.zaxxer.hikari.HikariDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://192.168.1.12:5781/pocket-payment?characterEncoding=utf-8&useSSL=false
+    username: root
+    password: root
+    hikari:
+      connection-test-query: SELECT 1
+      connection-timeout: 60000
+      idle-timeout: 500000
+      max-lifetime: 540000
+      maximum-pool-size: 10
+      minimum-idle: 5
+      pool-name: GuliHikariPool
+
+alipay:
+  alipay_url: https://openapi-sandbox.dl.alipaydev.com/gateway.do
+  app_id: 9021000140612644
+  app_private_key: MIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCplKeV+be3SgUNmDXqVChJRJkg0xuqGQrO/6MtzxHAR0A6NdKfRig65Ib70b4JT2RhEVNhia5WfGTmke3JFxiyIjyc821SseyrXRdbnDDkNm7jXrviJaeEpPQlO8Cm1F3b1MPUUL84S3Qd8/Nt1/XeUnR6nlCSt/G+Jfk7Yf/PVNn0KBUNjPj8fZL36URHrg7dPP41RrsZuTU7nzureDiUrBBwXe3XPjqIZl6tUnKnNLCUgoMZ72ya7VzVwPj5gFIxH8CYIQaeT2RVrjDwGDqEEQcKdZxLcyjqJ261D4ucFlCVU6sopqghkgWmOWOzYR7stPaAZBOgpJZGAPFZ6vLZAgMBAAECggEBAJjG73CDaIs9qW3E+pXhOeZAYgCbkKnfI8i3sKhdjG2BA5Et2lJaH3ZnWmDWZnH2z8VPmaIfKyyJp1G+mM54+2vIwnjYKl69Iy6DkL6c6cNAcwhu2a/1IoWzIq3EtlzWqLSba84E7TFncPZnSKFmVgD0ojGyHX8BL06S4YYpVRDQtcWDJl5/6GeSRMnVIulgTTbyuF1L3W9SPj157QiPxHH25cP8YJtxqGql3VY3DVlbsQHOnfRzsoJaoBAioZxDcQKFlGQRzR5KfDQM2S/3fsGUSbVxc00mMP6d9Cznfb/JYsS5EveB8AXVTJXQ1ZpmLnbyAZgjfy4FeviTkOOvtIECgYEA3qzn9zFwvMI40QJJV5xRPQV8OKnAwpRnOu08Bw3i8DwcZMJmpN1/tEwjiDP2fABg/dqjAOfSISCnhUUYDFXa2mP3AzX7otsp10/uXsmVZ/45quLfBb9XNOe2tZUqx6HUHiacj5BMQk1NJ5Qb0fQCLiK7wmbnLWrhvvjtKjU5JPECgYEAwvWYIC05QnpQf1xcw4HXgOr7kGaYGH8lvKbqZyf4cEIjobq2cLSaoymla+UUwPoLUiKAoPicI7assdO9ns/KBak4pfZ5RigqFpz3GgNe3Lu9W1c2VF8SI/x6khk0c2ddWZAUgdF8lngsu4JpWD2R/KANe/GKo1qMNa2/Fq23jGkCgYBqlEfSwQ88yZl4MKf6Dw+zLVTvqhBhEbb3NWVt2u+sHJlagNGwR3RAT9ER+A0Z/PRvjJ5IaKzivkZwO0nvXYiKzx4Do2r14AB+1fs50zJ3u+7OJBirH5IV+HIzJ1p6grKMW97DuEVH1sf/EZzfOPNyMZ28xpQP4QB775lUgnT/gQKBgH7Nwo5bG70TVTwhVOyMjSB6tfir4g081cyoPBmwM7TAL/DHQlZ4AYRSWBefPipt9+MKMeOBD/1imVxoPhMHT3zzHbdEYoixIv7mRQoUWyTyryyzwtCJrYDefNJ9tlHBT0QrpErzeDdeHqovHlmYYlWPvHV7GxM4l61qPrl/b7zRAoGBAKihg0SGZJ3vq5iPCjKudmxdWNad8rUxet2kRAVNGox/65KzFy5Ur7pgJ3C6aP7Fvutb1sizAI5GdrF0cuy0LjDOLr0deTHeXzd/CddFUR8SKo8RqSvY6uyqjyTo/gmGxsOX4teF+Q214g6fsVMISCIctdwQllFTbHIWYgHjliRW
+  alipay_public_key: MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkgpaih2lpMqXnTt+lZihD3RlJdAfu+CHn4bKlSuhnyYhKDbhYGkm8RY9T4XKZV2UrNXEqhtu3J4QwagQTcD49bAaY+gTBZdArDP8YuKgpkz8F5p1AhOoJ+dTNTY/M0HVsXBB1RXGYBQxA0Jg1fL5jOcZutDm1c71s5uyzPEYtBBn4o+2OBXL4sDDUwigQ+qe593+1n/xcBIHikTmOkJCWXtaDAMGG1vAQ/wCK2WSuYiMivQqg9iNyDp+fFmMYR93O5ibeyFJeX0WRvD8UNb5rzhzK9r2dZq8vFcZRemN20sR3vS4iwsQLX6R6bvBpjcohx2uQ3xeGcqzlDK7Hvz4fwIDAQAB
+  return_payment_url: http://localhost:8080/payment/alipay/callback/return
+  notify_payment_url: http://pocket.nat300.top/payment/alipay/callback/notify
+  return_order_url: http://192.168.1.12:90/#/pages/money/paySuccess
