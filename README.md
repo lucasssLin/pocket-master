@@ -132,14 +132,16 @@ pocket-master
 
 ### Front-end Deployment
 
-#### Admin Backend
+#### Merchant Front-end
+
 ```bash
 cd shopping-system-back-front-js/pocket-ui
 pnpm install
 pnpm run dev
 ```
 
-#### User Frontend
+#### Customer Front-end
+
 ```bash
 cd shopping-system-front-front-uniapp-ts/pocket-front-master
 npm install
