@@ -10,9 +10,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
-/**
- * 聊天记忆服务实现类 - 内存存储版本
- */
+
 @Service
 @Slf4j
 public class InMemoryChatMemoryServiceImpl implements ChatMemoryService {
