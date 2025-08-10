@@ -17,7 +17,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
-// 推荐控制器
 @RestController
 @RequestMapping("/recommendationList")
 public class RecommendationController extends BaseController {

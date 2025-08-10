@@ -27,8 +27,7 @@ public class ItemCFRecommendationAlgorithm{
     
     @Autowired
     private RemoteUserInfoService remoteUserInfoService;
-//    @Autowired
-//    private RecommendationResultMapper recommendationResultMapper;
+
     
     @Resource
     private RedisTemplate<String, Object> redisTemplate;
